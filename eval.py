@@ -23,8 +23,6 @@ torch.backends.cuda.enable_math_sdp(True)
 
 wandb_token = os.getenv("WANDB_TOKEN")
 wandb.login(wandb_token)
-#wandb.login('f9d4d41aa3a6771038e3755feb9ea29d9b8f77cf')
-# wandb.login('003881a64f0a582bd96b9e0a6c992151a0baf7d1') #Nam
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # --- wandb logging ---
