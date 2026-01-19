@@ -1,24 +1,24 @@
 #!/bin/bash
 
-SEEDS=(1026 1024 512 1356 896)
+RATIOS=(0.05 0.07 0.1 0.25 0.5 0.75)
 
 echo "*********************************"
 echo "Starting experiments with baseline"
 echo "*********************************"
 
-for SEED in "${SEEDS[@]}"; do
+for RATIO in "${RATIOS[@]}"; do
     echo "---------------------------------"
-    echo "Running experiment with ratio=${SEED}"
+    echo "Running experiment with ratio=${RATIO}"
     echo "---------------------------------"
 
-    run_name="baseline_ratio0.1_seed${SEED}"
+    run_name="baseline_ratio${RATIO}"
 
     python main.py \
         --config-name baseline \
-        seed=${SEED} \
+        ratio=${RATIO} \
         save_name=$run_name
 
-    echo "Finished seed=${SEED}"
+    echo "Finished ratio=${RATIO}"
     echo ""
 done
 

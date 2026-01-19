@@ -159,7 +159,7 @@ video_002,Adenoma,1,datasets/videos/video_002.mp4,"[0, 8, 19, 31, 52, ...]"
 
 ### Baseline Model
 
-To train the baseline Vision Transformer model:
+To train the baseline:
 
 ```bash
 bash run.sh
@@ -220,7 +220,7 @@ Run experiments with multiple seeds:
 bash run_adaptive.sh
 ```
 
-Seeds: [1026, 1024, 512, 1356, 896]
+Seeds: [0.05, 0.07, 0.1, 0.25, 0.5, 0.75]
 
 ### Training with Custom Parameters
 
