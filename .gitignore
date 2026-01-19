@@ -1,1 +1,32 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments (Môi trường ảo)
+venv/
+env/
+.venv/
+ENV/
+
+# Configuration & Secrets (File chứa mật khẩu, token)
 .env
+
+
+# Machine Learning Models & Weights (File nặng, không nên đưa lên Git)
+*.pt
+*.onnx
+*.weights
+
+# Local logs & Snapshots
+logs/
+snapshots/
+*.log
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# IDEs (Nếu bạn dùng VS Code hoặc PyCharm)
+.vscode/
+.idea/

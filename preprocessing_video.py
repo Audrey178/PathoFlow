@@ -1,35 +1,45 @@
 import os
-from utils.video_utils import extract_and_save
+import subprocess
+from concurrent.futures import ThreadPoolExecutor
 
-FRAME_STRIDE = 5           
-LAP_VAR_THRESH = 100      
-TISSUE_THRESH = 0.05  
+VIDEO_DIR = "new_data/BS Cuong"
+FRAME_DIR = "datasets/frames_v3"
+SCENE_THRESH = 0.05
+MAX_WORKERS = 4
 
-SAVE_DIR = 'datasets/frames'
-
-data_paths = {
-    'train' : 'datasets/videos/train',
-    'val' : 'datasets/videos/validation'
+label2label = {
+    "A": "Adenoma",
+    "N": "Normal",
+    "M": "Malignant"
 }
 
+def extract_frames(video_path, output_dir):
+    name = os.path.splitext(os.path.basename(video_path))[0]
+    out_dir = os.path.join(output_dir, name)
+    os.makedirs(out_dir, exist_ok=True)
 
-labels = ['Normal', 'Adenoma', 'Malignant']
-label2id = {
-    label: idx for idx, label in enumerate(labels)
-}
-id2labels = {idx: label for label, idx in label2id.items()}
+    cmd = [
+        "ffmpeg",
+        "-i", video_path,
+        "-vsync", "0",
+        f"{out_dir}/frame_%06d.png"
+    ]
+    subprocess.run(cmd)
+    return f"[OK] {name}"
 
-def load_data(data_path, type):
-    save_dir = os.path.join(SAVE_DIR, type)
-    if save_dir is not None:
-        os.makedirs(save_dir, exist_ok=True)
-    for label_idx, label_name in id2labels.items():
-        class_dir = os.path.join(data_path, label_name)
-        for video_file in os.listdir(class_dir):
-            video_path = os.path.join(class_dir, video_file)
-            video_name = video_file.split('.avi')[0]
-            out_dir = os.path.join(save_dir, label_name)
-            file_size = extract_and_save(video_path, out_dir, FRAME_STRIDE , LAP_VAR_THRESH, TISSUE_THRESH, label_name, video_name)
-            print(file_size)
-            
-load_data(data_paths['train'], 'train')
+if __name__ == "__main__":
+    
+    dirs = os.listdir(VIDEO_DIR)
+    
+    for dir in dirs:
+        print(f"=============={dir} processing===============")
+        input_dir = os.path.join(VIDEO_DIR, dir)
+        label = label2label[dir.split("-")[0]]
+        output_dir = os.path.join(FRAME_DIR, label)
+        os.makedirs(output_dir, exist_ok=True)
+        videos = [os.path.join(input_dir, f) for f in os.listdir(input_dir)
+              if f.lower().endswith((".mp4", ".avi", ".mkv"))]
+
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
+            for result in ex.map(extract_frames, videos, [output_dir]*len(videos)):
+                print(result)

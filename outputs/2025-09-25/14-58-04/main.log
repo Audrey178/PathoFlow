@@ -1,3 +1,0 @@
-[2025-09-25 14:58:04,590][SmartfileTest][INFO] - config: {'strategy': 'baseline', 'seed': 42, 'datapath': '/data/frames', 'batch_size': 4, 'train_fraction': 0.8, 'test_fraction': 0.2, 'num_classes': 3, 'img_size': 224, 'patch_size': 16, 'opt': 'adam', 'model': 'vit_transformer', 'dropout': 0.25, 'max_epochs': 20, 'weight_decay': 1e-05, 'lr': 0.0002, 'hidden_size': 512, 'log_data': True, 'r': 8, 'lora_alpha': 16, 'lora_dropout': 0.15, 'target_modules': ['qkv', 'proj'], 'results_dir_path': 'results'}
-[2025-09-25 14:58:42,187][timm.models._builder][INFO] - Loading pretrained weights from Hugging Face hub (MahmoodLab/UNI2-h)
-[2025-09-25 14:58:56,082][timm.layers.pos_embed][INFO] - Resized position embedding: (16, 16) to (14, 14).
