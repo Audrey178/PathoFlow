@@ -53,7 +53,7 @@ HF_TOKEN=your_huggingface_token_here
 
 ### Overview
 
-We provide a subset of videos to facilitate reproducibility of our results. For your own dataset, follow the steps below to prepare data.
+We provide a subset of videos to facilitate reproducibility of our results: [Download](https://mega.nz/folder/1jBmnCza#eAfKKdBksybicLvA2kSsqA). For your own dataset, follow the steps below to prepare data.
 
 For your own dataset, you can modify and run following this steps: 
 
