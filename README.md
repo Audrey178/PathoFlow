@@ -100,7 +100,6 @@ python utils/feat_extract.py \
 
 **Important Notes:**
 - The feature extraction uses the **UNI2-h** model from `hf-hub:MahmoodLab/UNI2-h`
-- Features are extracted from non-overlapping patches (224×224) of input images
 - SDPA backend is enabled for optimized attention computation (FlashAttention support)
 - Features are saved as PyTorch tensors (`*.pt` files)
 - Input images should be organized in `datasets/frames/{label}/{slide_id}/` directories
