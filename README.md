@@ -336,11 +336,11 @@ View experiments at: https://wandb.ai/
 If you use this code in your research, please cite:
 
 ```bibtex
-@article{PathoFlow2024,
+@article{PathoFlow2026,
   title={PathoFlow: Adaptive Token Selection for Efficient Video Analysis},
   author={Your Name},
   journal={Your Journal},
-  year={2024}
+  year={2026}
 }
 ```
 
