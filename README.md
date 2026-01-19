@@ -41,7 +41,7 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. Set up environment variables (for HuggingFace token):
+4. Set up environment variables (for HuggingFace token, WanDB token):
 
 Create a `.env` file in the project root:
 
@@ -53,8 +53,9 @@ HF_TOKEN=your_huggingface_token_here
 
 ### Overview
 
-We provide pre-extracted features to facilitate reproducibility of our results. For your own dataset, follow the steps below to prepare data.
+We provide a subset of videos to facilitate reproducibility of our results. For your own dataset, follow the steps below to prepare data.
 
+For your own dataset, you can modify and run following this steps: 
 
 ### Step 1: Extract Frames from Videos
 
@@ -63,14 +64,6 @@ Convert your videos to frame sequences:
 ```bash
 python preprocessing_video.py
 ```
-
-**Configuration:**
-- `VIDEO_DIR`: Directory containing source videos organized by class (e.g., "new_data/BS Cuong")
-- `FRAME_DIR`: Output directory for extracted frames (default: "datasets/frames_v3")
-- `SCENE_THRESH`: Scene detection threshold (default: 0.05)
-- `MAX_WORKERS`: Number of parallel threads (default: 4)
-
-The script expects videos in subdirectories named with format `{LABEL}-{ID}` where `LABEL` is one of: A (Adenoma), N (Normal), M (Malignant).
 
 ### Step 2: Extract Features Using SSL Pretrained Models
 
@@ -97,12 +90,6 @@ python utils/feat_extract.py \
     --split test \
     --feats_dir datasets/feats
 ```
-
-**Important Notes:**
-- The feature extraction uses the **UNI2-h** model from `hf-hub:MahmoodLab/UNI2-h`
-- SDPA backend is enabled for optimized attention computation (FlashAttention support)
-- Features are saved as PyTorch tensors (`*.pt` files)
-- Input images should be organized in `datasets/frames/{label}/{slide_id}/` directories
 
 ### Step 3: Prepare Dataset CSV Files
 
@@ -153,7 +140,6 @@ video_002,Adenoma,1,datasets/videos/video_002.mp4,"[0, 8, 19, 31, 52, ...]"
 ...
 ```
 
-**Note**: Processing is parallelized across all available CPU cores using `ProcessPoolExecutor` for efficient handling of large datasets.
 
 ## Training
 
@@ -326,69 +312,7 @@ CONFIDENCE: 95.32%
 
 - Ensure `HF_TOKEN` is set in your `.env` file for HuggingFace model access
 - The inference uses the same optical flow-based frame selection as training
-- Features are extracted in float16 (mixed precision) for efficiency
-- Batch size is fixed to 1 for single video inference
 
-## Project Structure
-
-```
-PathoFlow/
-├── README.md
-├── requirements.txt
-├── .env                          # Environment variables (HF_TOKEN)
-│
-├── configs/
-│   └── baseline.yaml             # Model and training configuration
-│
-├── datasets/
-│   ├── csv/                      # Dataset split files
-│   │   ├── train.csv
-│   │   ├── val.csv
-│   │   └── test.csv
-│   ├── feats/                    # Extracted features (PyTorch tensors)
-│   ├── frames/                   # Extracted frames from videos
-│   └── videos/                   # Original video files
-│
-├── models/
-│   ├── __init__.py
-│   ├── vit_transformer_model.py  # Vision Transformer implementation
-│   ├── timm_wrapper.py           # TIMM model wrapper
-│   └── __pycache__/
-│
-├── results/                      # Training outputs and checkpoints
-│
-├── utils/
-│   ├── __init__.py
-│   ├── feat_extract.py           # Feature extraction using UNI2-h
-│   ├── datasets_utils.py         # Dataset classes and utilities
-│   ├── extract_frames.py         # Frame extraction utilities
-│   ├── core_utils.py             # Core utilities
-│   ├── finding_frame_idx_*.py    # Optical flow-based frame selection
-│   ├── heatmap.py                # Heatmap visualization
-│   ├── utils.py                  # General utilities
-│   └── __pycache__/
-│
-├── preprocessing_video.py        # Video to frame conversion
-├── feat_extract.py              # Feature extraction script
-├── main.py                      # Main training script
-├── eval.py                      # Evaluation script
-├── infer.py                     # Inference script
-│
-├── run.sh                       # Run baseline experiment
-├── run_adaptive.sh              # Adaptive token selection experiments
-├── run_masking.sh               # Masking strategy experiments
-├── run_topk_fixed.sh            # Top-K ablation experiments
-├── eval.sh                      # Evaluation script
-└── multi_thread_tune.sh         # Multi-threaded tuning
-```
-
-## Model Architecture
-
-The implementation uses Vision Transformer (ViT) with:
-- Input feature dimension: 1536 (from UNI2-h)
-- Hidden size: 1536
-- Patch size: 16
-- Number of output classes: 3 (Normal, Adenoma, Malignant)
 
 ## Key Features
 

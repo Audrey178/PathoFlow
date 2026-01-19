@@ -2,16 +2,13 @@ import os
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 
-VIDEO_DIR = "new_data/BS Cuong"
+VIDEO_DIR = "new_data"
 FRAME_DIR = "datasets/frames_v3"
 SCENE_THRESH = 0.05
 MAX_WORKERS = 4
 
-label2label = {
-    "A": "Adenoma",
-    "N": "Normal",
-    "M": "Malignant"
-}
+labels = ["Adenoma", "Malignant", "Normal"]
+
 
 def extract_frames(video_path, output_dir):
     name = os.path.splitext(os.path.basename(video_path))[0]
@@ -29,12 +26,9 @@ def extract_frames(video_path, output_dir):
 
 if __name__ == "__main__":
     
-    dirs = os.listdir(VIDEO_DIR)
-    
-    for dir in dirs:
-        print(f"=============={dir} processing===============")
-        input_dir = os.path.join(VIDEO_DIR, dir)
-        label = label2label[dir.split("-")[0]]
+    for label in labels:
+        print(f"=============={label} processing===============")
+        input_dir = os.path.join(VIDEO_DIR, label)
         output_dir = os.path.join(FRAME_DIR, label)
         os.makedirs(output_dir, exist_ok=True)
         videos = [os.path.join(input_dir, f) for f in os.listdir(input_dir)
