@@ -121,8 +121,8 @@ def train(run, logger, args, train_loader, val_loader, device, model = None):
             ls = get_label_smoothing(epoch, args.max_epochs)
             loss_fn = nn.CrossEntropyLoss(label_smoothing=ls)
             val_loss_fn = nn.CrossEntropyLoss()
-            train_loss = train_loop(run, scaler, logger, epoch, model, train_loader, metrics, optimizer, device, 5, loss_fn)
-            acc, val_loss = validate(run, logger, epoch, model, val_loader, device, args.strategy, metrics, 5, val_loss_fn, args.results_dir_path)
+            train_loss = train_loop(run, scaler, logger, epoch, model, train_loader, metrics, optimizer, device, 1, loss_fn)
+            acc, val_loss = validate(run, logger, epoch, model, val_loader, device, args.strategy, metrics, 1, val_loss_fn, args.results_dir_path)
             # if epoch < MASK_START_EPOCH + 5:  # The "Buffer" # Huy
             #     pass  # Don't let the scheduler see the crash!
             # else:
