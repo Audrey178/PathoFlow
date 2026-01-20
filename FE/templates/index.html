@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Video Classifier</title>
+    <style>
+        :root {
+            --primary: #3498db;
+            --success: #2ecc71;
+            --bg: #f4f7f6;
+            --dark: #2c3e50;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--dark);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: white;
+            width: 90%;
+            max-width: 700px;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        h1 { margin-bottom: 10px; color: var(--dark); }
+        p.subtitle { color: #7f8c8d; margin-bottom: 30px; }
+
+        .upload-section {
+            border: 2px dashed #bdc3c7;
+            padding: 30px;
+            border-radius: 10px;
+            background: #fafafa;
+            transition: border 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .upload-section:hover { border-color: var(--primary); }
+
+        .preview-container {
+            width: 100%;
+            background: #000;
+            border-radius: 10px;
+            margin: 20px 0;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        video {
+            width: 100%;
+            max-height: 450px;
+            display: none;
+        }
+
+        .placeholder-text { color: #555; font-style: italic; }
+
+        .controls { margin-top: 20px; }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 40px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.3s;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        #status {
+            margin-top: 15px;
+            font-size: 0.9em;
+            color: #e67e22;
+            height: 20px;
+        }
+
+        .loader {
+            display: none;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        #result-box {
+            margin-top: 25px;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .result-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Video Analysis</h1>
+    <p class="subtitle">Upload medical videos for automated classification</p>
+
+    <div class="upload-section">
+        <input type="file" id="videoInput" accept="video/*" onchange="handleFileSelection()">
+        <div id="status"></div>
+    </div>
+
+    <div class="preview-container" id="p-container">
+        <span class="placeholder-text" id="p-text">Video preview will appear here</span>
+        <video id="v-preview" controls></video>
+    </div>
+
+    <div class="loader" id="main-loader"></div>
+
+    <div class="controls">
+        <button id="analyzeBtn" onclick="runInference()" disabled>Start Analysis</button>
+    </div>
+
+    <div id="result-box"></div>
+</div>
+
+<script>
+    const videoInput = document.getElementById('videoInput');
+    const vPreview = document.getElementById('v-preview');
+    const pText = document.getElementById('p-text');
+    const status = document.getElementById('status');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const resultBox = document.getElementById('result-box');
+    const loader = document.getElementById('main-loader');
+
+    /**
+     * Handles file selection and determines if direct preview or 
+     * server-side conversion is needed.
+     */
+    async function handleFileSelection() {
+        const file = videoInput.files[0];
+        if (!file) return;
+
+        // Reset UI state
+        vPreview.style.display = 'none';
+        vPreview.src = "";
+        pText.style.display = 'block';
+        pText.innerText = "Loading...";
+        resultBox.style.display = 'none';
+        analyzeBtn.disabled = true;
+        status.innerText = "";
+
+        const fileName = file.name.toLowerCase();
+        
+        // Browser supported formats
+        if (fileName.endsWith('.mp4') || fileName.endsWith('.webm') || fileName.endsWith('.ogg')) {
+            const url = URL.createObjectURL(file);
+            displayVideo(url);
+            status.innerText = "";
+            analyzeBtn.disabled = false;
+        } 
+        else {
+            // Non-supported formats (like .avi) -> Request conversion for preview
+            status.innerText = "Converting non-MP4 format for preview...";
+            
+            const formData = new FormData();
+            formData.append('video', file);
+
+            try {
+                const response = await fetch('/convert_preview', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.video_data) {
+                    const blobUrl = `data:video/mp4;base64,${data.video_data}`;
+                    displayVideo(blobUrl);
+                    status.innerText = "Converted preview loaded.";
+                    analyzeBtn.disabled = false;
+                } else {
+                    throw new Error(data.error || "Conversion failed");
+                }
+            } catch (err) {
+                console.error(err);
+                pText.innerText = "Preview not available for this format.";
+                status.innerText = "You can still attempt analysis.";
+                analyzeBtn.disabled = false; // Allow them to try analysis anyway
+            }
+        }
+    }
+
+    function displayVideo(source) {
+        pText.style.display = 'none';
+        vPreview.src = source;
+        vPreview.style.display = 'block';
+        vPreview.load();
+    }
+
+    /**
+     * Sends the original video to the /predict endpoint
+     */
+    async function runInference() {
+        const file = videoInput.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('video', file);
+
+        // UI Feedback
+        loader.style.display = 'block';
+        analyzeBtn.disabled = true;
+        resultBox.style.display = 'none';
+        status.innerText = "Predicting Class...";
+
+        try {
+            const response = await fetch('/predict', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            
+            loader.style.display = 'none';
+            analyzeBtn.disabled = false;
+
+            if (data.error) {
+                showResult(`Error: ${data.error}`, false);
+            } else {
+                showResult(`
+                    <strong>Classification:</strong> ${data.predicted_class}<br>
+                    <strong>Confidence:</strong> ${data.confidence}
+                `, true);
+            }
+        } catch (err) {
+            loader.style.display = 'none';
+            analyzeBtn.disabled = false;
+            showResult("Network error occurred during analysis.", false);
+        }
+    }
+
+    function showResult(message, isSuccess) {
+        resultBox.innerHTML = message;
+        resultBox.style.display = 'block';
+        resultBox.className = isSuccess ? 'result-success' : 'result-error';
+        resultBox.style.backgroundColor = isSuccess ? '#d4edda' : '#f8d7da';
+        resultBox.style.color = isSuccess ? '#155724' : '#721c24';
+        resultBox.style.border = isSuccess ? '1px solid #c3e6cb' : '1px solid #f5c6cb';
+        status.innerText = isSuccess ? "Analysis Complete." : "Analysis Failed.";
+    }
+</script>
+
+</body>
+</html>
