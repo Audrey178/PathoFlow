@@ -4,6 +4,8 @@
 
 This repository contains the implementation of PathoFlow, a framework for video analysis with adaptive token selection and masking strategies. The codebase includes data preparation, feature extraction, model training, and evaluation pipelines.
 
+We provide a subset of videos to facilitate reproducibility of our results: [Download](https://mega.nz/folder/1jBmnCza#eAfKKdBksybicLvA2kSsqA). For your own dataset, follow the steps below to prepare data.
+
 ## Table of Contents
 
 1. [Installation](#installation)
@@ -52,8 +54,6 @@ HF_TOKEN=your_huggingface_token_here
 ## Data Preparation
 
 ### Overview
-
-We provide a subset of videos to facilitate reproducibility of our results: [Download](https://mega.nz/folder/1jBmnCza#eAfKKdBksybicLvA2kSsqA). For your own dataset, follow the steps below to prepare data.
 
 For your own dataset, you can modify and run following this steps: 
 
