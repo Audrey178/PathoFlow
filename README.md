@@ -337,6 +337,10 @@ View experiments at: https://wandb.ai/
   <source src="clean_demo.mp4" type="video/mp4">
   Trình duyệt của bạn không hỗ trợ video.
 </video>
+```bash
+clean_demo.mp4
+```
+
 
 
 ## Citation
