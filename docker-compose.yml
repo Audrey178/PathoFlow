@@ -1,0 +1,29 @@
+services:
+  web:
+    build:
+      context: .              # Build from Project Root
+      dockerfile: FE/Dockerfile  # Point to Dockerfile inside FE
+    # Run app.py directly to avoid Fork/CUDA crashes (No Gunicorn!)
+    command: python3 FE/app.py
+    ports:
+      - "5000:5000"
+    environment:
+      # Save heavy models to host disk to save space
+      - HF_HOME=/app/hf_cache
+      - HF_TOKEN=${HF_TOKEN}
+      # Point to your specific checkpoint path
+      - MODEL_PATH=/mnt/disk4/video-panninng-classification/results/final/baseline_ratio0.1_seed512.pth
+    volumes:
+      # Map the entire project root to /app
+      - .:/app
+      # Map cache folder so models survive rebuilds
+      - ./hf_cache:/app/hf_cache
+      # Map your external disk
+      - /mnt/disk4:/mnt/disk4
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

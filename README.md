@@ -332,6 +332,31 @@ wandb: True  # Set to False to disable W&B logging
 
 View experiments at: https://wandb.ai/
 
+## Setting up Web Demo
+
+### 1. Prerequisites
+Ensure your host machine has the following installed:
+* **Docker** and **Docker Compose**
+* **NVIDIA Container Toolkit** (for GPU support)
+* **NVIDIA Drivers**
+
+### 2. Build and Run
+Clone the repository and launch the system using Docker Compose:
+
+```bash
+git clone [https://github.com/your-repo/pathoflow.git](https://github.com/your-repo/pathoflow.git)
+cd pathoflow
+docker compose up --build
+```
+
+### 3. Usage
+Open your browser to http://localhost:5000.
+
+Input: Upload a clinical video study.
+
+Output: View the predicted diagnostic class (Normal, Adenoma, or Malignant) and the model's confidence score.
+
+
 ## Video demo
 
 ![PathoFlow Demo](demo.gif)

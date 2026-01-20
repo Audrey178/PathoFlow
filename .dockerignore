@@ -1,0 +1,13 @@
+FE/venv/
+__pycache__/
+FE/__pycache__/
+.git/
+.gitignore
+results/
+old_data/
+new_data/
+wandb
+datasets/
+.venv/
+echo ".env" >> .dockerignore
+requirements.txt/
