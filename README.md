@@ -333,7 +333,7 @@ View experiments at: https://wandb.ai/
 
 ## Video demo
 
-<video src="clean_demo.mp4" controls="controls" style="max-width: 100%;">
+<video src="https://github.com/Audrey178/PathoFlow/releases/download/v1.0-demo/clean_demo.mp4" controls="controls" muted="muted" style="max-width: 100%;">
   Trình duyệt của bạn không hỗ trợ xem video trực tiếp.
 </video>
 
