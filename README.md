@@ -332,8 +332,9 @@ wandb: True  # Set to False to disable W&B logging
 View experiments at: https://wandb.ai/
 
 ## Video demo
-
-
+<video src="https://github.com/Audrey178/PathoFlow/releases/download/v1.0-demo/clean_demo.mp4" controls="controls" style="max-width: 100%;">
+  Trình duyệt của bạn không hỗ trợ xem video trực tiếp.
+</video>
 ## Citation
 
 If you use this code in your research, please cite:
