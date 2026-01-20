@@ -337,7 +337,7 @@ If you use this code in your research, please cite:
 
 ```bibtex
 @article{PathoFlow2026,
-  title={PathoFlow: Adaptive Token Selection for Efficient Video Analysis},
+  title={PathoFlow:  A Motion-Aware Prototype-Based Framework for Microscopic Pathology Video Classification},
   author={Your Name},
   journal={Your Journal},
   year={2026}
