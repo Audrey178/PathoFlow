@@ -331,6 +331,9 @@ wandb: True  # Set to False to disable W&B logging
 
 View experiments at: https://wandb.ai/
 
+## Video demo
+
+
 ## Citation
 
 If you use this code in your research, please cite:
