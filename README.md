@@ -1,4 +1,4 @@
-# PathoFlow: Adaptive Token Selection for Efficient Video Analysis
+# PathoFlow: A Motion-Aware Prototype-Based Framework for Microscopic Pathology Video Classification
 
 ## Overview
 

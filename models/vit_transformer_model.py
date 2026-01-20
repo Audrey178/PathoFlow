@@ -7,7 +7,7 @@ class ClusterTokensPooling(nn.Module):
     def __init__(self, num_clusters, dim, heads=4):
         super().__init__()
         self.num_clusters = num_clusters
-        self.cluster_tokens = nn.Parameter(torch.randn(1, num_clusters, dim))
+        self.cluster_tokens = nn.Parameter(torch.randn(num_clusters, dim))
         self.attn = nn.MultiheadAttention(embed_dim=dim, num_heads=heads, batch_first=True)
         self.norm = nn.LayerNorm(dim)
 
@@ -34,21 +34,17 @@ class ClusterTokensPooling(nn.Module):
         return out
 
 class AdaptiveCrossAttentionPooling(nn.Module):
-    def __init__(self, dim, ratio=0.25, max_tokens=8192, heads=8):
+    def __init__(self, dim, ratio=0.25, max_tokens=1024, heads=8):
         super().__init__()
         self.dim = dim
         self.ratio = ratio
         self.max_tokens = max_tokens
         self.heads = heads
+        self.cluster_pool = nn.Parameter(torch.randn(max_tokens, dim))
         
         self.cross_attn = nn.MultiheadAttention(embed_dim=dim, num_heads=heads, batch_first=True)
         self.norm = nn.LayerNorm(dim)
-        
-        self.query_gen = nn.Sequential(
-            nn.Linear(dim, dim),
-            nn.GELU(),
-            nn.Linear(dim, dim)
-        )
+   
         
     def forward(self, x, attn_mask=None):
         B, T, D = x.shape
@@ -58,10 +54,21 @@ class AdaptiveCrossAttentionPooling(nn.Module):
             k = max(4, int(valid_len * self.ratio))
         else:
             k = max(4, int(T * self.ratio))
+            
+        x_norm = F.normalize(x, dim=-1)
+        cluster_norm = F.normalize(self.cluster_pool, dim=-1) 
         
-        n_tokens = min(k, self.max_tokens)
+        sim = torch.einsum("btd,kd->btk", x_norm, cluster_norm)
+
+        frame_idx = sim.topk(k, dim=-1).indices
         
-        queries = F.adaptive_avg_pool1d(x.transpose(1, 2), n_tokens).transpose(1, 2)  # [B, n_tokens, D]
+        flat_idx = frame_idx.reshape(B, -1)
+        
+        freq = torch.zeros(B, self.max_tokens, device=x.device)
+        freq.scatter_add_(1, flat_idx, torch.ones_like(flat_idx, dtype=freq.dtype))
+        
+        topk_video_idx = freq.topk(k, dim=-1).indices  
+        queries = self.cluster_pool[topk_video_idx] 
         
         out, _ = self.cross_attn(query=queries, key=x, value=x, key_padding_mask=attn_mask)  # [B, n_tokens, D]
         
@@ -126,8 +133,8 @@ class VTrans(nn.Module):
         # self.vit_pretrained = timm.create_model(model_name=model_name, pretrained=True, **timm_kwargs)
         # self.vit_pretrained = model
         # self.vit_pretrained.set_grad_checkpointing(True)
-        self.n_masked_patch = n_masked_patch 
-        self.mask_drop = mask_drop 
+        self.n_masked_patch = n_masked_patch # huy
+        self.mask_drop = mask_drop # Huy
         self.hidden_dim = hidden_dim
         self.num_classes = num_classes
         self.num_clusters = num_clusters
@@ -196,10 +203,10 @@ class VTrans(nn.Module):
         return logits
     
 class VTransAdaptive(nn.Module):
-    def __init__(self, num_classes, chunk_size = 500, dropout = 0.15, hidden_dim = 1536, n_masked_patch=5, mask_drop=0.5, ratio=0.5):
+    def __init__(self, num_classes, chunk_size = 500, dropout = 0.15, hidden_dim = 1536, n_masked_patch=0, mask_drop=0.5, ratio=0.5):
         super().__init__()
-        self.n_masked_patch = n_masked_patch 
-        self.mask_drop = mask_drop 
+        self.n_masked_patch = n_masked_patch # huy
+        self.mask_drop = mask_drop # Huy
         self.hidden_dim = hidden_dim
         self.num_classes = num_classes
         self.chunk_size = chunk_size
@@ -276,8 +283,8 @@ class VTransDuo(nn.Module):
         super().__init__()
         # self.vit_pretrained = timm.create_model(...) 
         
-        self.n_masked_patch = n_masked_patch 
-        self.mask_drop = mask_drop 
+        self.n_masked_patch = n_masked_patch # Huy
+        self.mask_drop = mask_drop # Huy
         self.hidden_dim = hidden_dim
         self.num_classes = num_classes
         self.num_clusters = num_clusters
