@@ -333,10 +333,9 @@ View experiments at: https://wandb.ai/
 
 ## Video demo
 
-https://github.com/Audrey178/PathoFlow/releases/download/v1.0-demo/clean_demo.mp4
-```bash
-clean_demo.mp4
-```
+![PathoFlow Demo](demo.gif)
+
+▶ Full video: [Download clean_demo.mp4](clean_demo.mp4)
 
 
 ## Citation
