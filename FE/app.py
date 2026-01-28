@@ -1,12 +1,17 @@
 import os
 import sys
 import torch
+import torch.nn.utils.prune as prune
 import torch.utils.data.dataloader
+torch.cuda.empty_cache()
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+import logging
 
-# --- 1. CRITICAL: CUDA CRASH FIX ---
-# This forces num_workers=0 to prevent "CUDA in forked subprocess" error.
-# We apply this BEFORE any other libraries load.
-print("[System] Applying Single-Process Patch...", flush=True)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
 
 _OriginalDataLoader = torch.utils.data.dataloader.DataLoader
 
@@ -20,7 +25,6 @@ class SafeDataLoader(_OriginalDataLoader):
 # Overwrite the class globally
 torch.utils.data.DataLoader = SafeDataLoader
 torch.utils.data.dataloader.DataLoader = SafeDataLoader
-print("[System] Patch Applied Successfully.", flush=True)
 # -----------------------------------
 
 import cv2
@@ -32,32 +36,20 @@ import traceback
 from PIL import Image
 from flask import Flask, request, jsonify, render_template
 from torchvision import transforms as T
-from werkzeug.utils import secure_filename
-
-# --- 2. PATH SETUP (Fixing Imports) ---
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__)) # .../FE
-PARENT_DIR = os.path.dirname(CURRENT_DIR)                # .../Project_Root
-UTILS_DIR = os.path.join(PARENT_DIR, 'utils')            # .../Project_Root/utils
-
-# Add to system path so we can import 'utils' and 'models'
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PARENT_DIR = os.path.dirname(CURRENT_DIR)
+UTILS_DIR = os.path.join(PARENT_DIR, 'utils')
 sys.path.append(PARENT_DIR)
 sys.path.append(UTILS_DIR)
 
-try:
-    from utils.feat_extract import TimmViTEncoder
-    from models.vit_transformer_model import VTransAdaptive
-    from utils.find_frames_idx import get_smart_indices_from_frames
-    print("[System] Project modules imported successfully.", flush=True)
-except ImportError as e:
-    print(f"CRITICAL IMPORT ERROR: {e}", flush=True)
-    if os.path.exists(UTILS_DIR):
-        print(f"Contents of {UTILS_DIR}: {os.listdir(UTILS_DIR)}")
-    sys.exit(1)
-
+from utils.feat_extract import TimmViTEncoder
+from models.vit_transformer_model import VTransAdaptive
+from utils.find_frames_idx import get_smart_indices_from_frames
 # --- 3. CONFIGURATION ---
 app = Flask(__name__, template_folder='templates')
+app.config['MAX_CONTENT_LENGTH'] = 5000 * 1024 * 1024
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-MODEL_PATH = os.environ.get("MODEL_PATH", "/mnt/disk4/video-panninng-classification/results/final/baseline_ratio0.1_seed512.pth")
+MODEL_PATH = os.environ.get("MODEL_PATH", "path_to_default_model.pth")
 CLASS_NAMES = {0: "Normal", 1: "Adenoma", 2: "Malignant"}
 MODELS = {}
 
@@ -77,59 +69,67 @@ def load_models_if_needed():
     }
 
     try:
-        # Load Encoder
         encoder = TimmViTEncoder(model_name='hf-hub:MahmoodLab/UNI2-h', kwargs=timm_kwargs)
         encoder.to(DEVICE)
         encoder.eval()
         MODELS["encoder"] = encoder
         
-        # Load Classifier
         classifier = VTransAdaptive(
             num_classes=len(CLASS_NAMES), ratio=0.1, dropout=0.5, 
             hidden_dim=1536, n_masked_patch=10, mask_drop=0.1
-        ).to(DEVICE)
-        
+        )
         if os.path.exists(MODEL_PATH):
             print(f"Loading checkpoint: {MODEL_PATH}", flush=True)
-            checkpoint = torch.load(MODEL_PATH, map_location=DEVICE)
+            checkpoint = torch.load(MODEL_PATH, map_location='cpu')
             state_dict = checkpoint['state_dict'] if 'state_dict' in checkpoint else checkpoint
             state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
             classifier.load_state_dict(state_dict, strict=False)
+            classifier.to(DEVICE)
+            for name, module in classifier.named_modules():
+                if isinstance(module, torch.nn.Linear):
+                    prune.l1_unstructured(module, name='weight', amount=0.2)
+                    prune.remove(module, 'weight')
+            
             classifier.eval()
             MODELS["classifier"] = classifier
         else:
             print(f"WARNING: Checkpoint NOT found at {MODEL_PATH}", flush=True)
-            # Raise error in production, or remove this line to test with random weights
             raise FileNotFoundError(f"Checkpoint missing: {MODEL_PATH}")
-
         print("Models loaded successfully.", flush=True)
     except Exception as e:
         print(f"Model Load Error: {e}", flush=True)
         raise RuntimeError(f"Encoder Load Failed: {e}")
-
-# --- 5. PREPROCESSING ---
+    
 def preprocess_video(video_path):
+    logging.info(f"DEBUG: Starting extraction for {video_path}")
     cap = cv2.VideoCapture(video_path)
-    frames = []
-    try:
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret: break
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            frames.append(Image.fromarray(frame))
-    finally:
-        cap.release()
+    all_frames = []
     
-    if not frames: raise ValueError("No frames found")
+    count = 0
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret: break
+        
+        all_frames.append(Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
+        count += 1
+        if count % 100 == 0:
+            logging.debug(f"DEBUG: Extracted {count} frames")
+
+    cap.release()
+    if os.path.exists(video_path):
+        os.remove(video_path)
+    logging.info(f"DEBUG: Completed extraction. Total: {len(all_frames)}")
+
+    indices = get_smart_indices_from_frames(all_frames)
+    logging.info(f"DEBUG: Smart indices selected: {indices}")
     
-    indices = get_smart_indices_from_frames(frames)
-    selected = [frames[i] for i in indices]
+    selected_images = [all_frames[i] for i in indices]
     
-    del frames
+    del all_frames
     gc.collect()
+    logging.debug("DEBUG: Large frame list deleted and GC called.")
     
-    transform = T.Compose([T.ToTensor()])
-    return torch.stack([transform(img) for img in selected]).to(DEVICE)
+    return torch.stack([T.ToTensor()(img) for img in selected_images]).to(DEVICE)
 
 # --- 6. ROUTES ---
 @app.route('/')
@@ -139,90 +139,47 @@ def home():
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({'status': 'running', 'device': DEVICE}), 200
-
-
-
-
-import subprocess
-
-@app.route('/convert_preview', methods=['POST'])
-def convert_preview():
-    temp_dir = tempfile.mkdtemp()
-    input_path = None
-    output_path = os.path.join(temp_dir, "preview.mp4")
-    
-    try:
-        if 'video' not in request.files:
-            return jsonify({'error': 'No file'}), 400
-        
-        f = request.files['video']
-        input_path = os.path.join(temp_dir, secure_filename(f.filename))
-        f.save(input_path)
-
-        # FFmpeg Command:
-        # -i: input file
-        # -vf scale=-2:480: scale to 480p height, keeping aspect ratio (must be even)
-        # -vcodec libx264: use web-friendly H.264
-        # -crf 28: compress quality (28 is high compression, small size)
-        # -preset veryfast: convert quickly
-        # -y: overwrite output
-        cmd = [
-            'ffmpeg', '-i', input_path,
-            '-vf', 'scale=-2:480',
-            '-vcodec', 'libx264',
-            '-crf', '28',
-            '-preset', 'veryfast',
-            '-movflags', 'frag_keyframe+empty_moov', # Optimized for streaming
-            '-f', 'mp4',
-            output_path, '-y'
-        ]
-        
-        subprocess.run(cmd, check=True, capture_output=True)
-
-        with open(output_path, "rb") as video_file:
-            encoded_video = base64.b64encode(video_file.read()).decode('utf-8')
-
-        return jsonify({'video_data': encoded_video})
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        # Cleanup all temp files
-        if input_path and os.path.exists(input_path): os.remove(input_path)
-        if os.path.exists(output_path): os.remove(output_path)
-        if os.path.exists(temp_dir): os.rmdir(temp_dir)
-        
-        
-        
+       
 @app.route('/predict', methods=['POST'])
 def predict():
     temp_path = None
     try:
-        if 'video' not in request.files: return jsonify({'error': 'No file'}), 400
-        
+        if 'video' not in request.files:
+            return jsonify({'error': 'No file'}), 400
         load_models_if_needed()
-        
         f = request.files['video']
-        if f.filename == '': return jsonify({'error': 'No filename'}), 400
-
-        # Save Temp File
-        fd, temp_path = tempfile.mkstemp(suffix=secure_filename(f.filename))
+        fd, temp_path = tempfile.mkstemp(suffix=".mp4", dir="/app") 
         os.close(fd)
         f.save(temp_path)
         
-        # Inference
-        raw = preprocess_video(temp_path)
+        # 1. Process Video -> List -> Smart Indices -> Tensor
+        input_tensor = preprocess_video(temp_path)
+        
+        # 2. Chunked Inference for Encoder
+        chunk_size = 25
+        all_feats = []
+        
         with torch.no_grad():
-            with torch.amp.autocast('cuda' if DEVICE == 'cuda' else 'cpu'):
-                feats = MODELS["encoder"](raw).float()
-            
-            feats = feats.unsqueeze(0)
-            T = feats.size(1)
-            attn_mask = torch.zeros((1, T), dtype=torch.bool).to(DEVICE)
+            with torch.amp.autocast('cuda'):
+                for i in range(0, input_tensor.size(0), chunk_size):
+                    chunk = input_tensor[i : i + chunk_size]
+                    chunk_feat = MODELS["encoder"](chunk).float()
+                    all_feats.append(chunk_feat)
+                    torch.cuda.empty_cache()
+                feats = torch.cat(all_feats, dim=0)
+                del input_tensor, all_feats
+                gc.collect()
+                torch.cuda.empty_cache()
+
+            # 3. Classifier Inference
+            feats = feats.unsqueeze(0) 
+            attn_mask = torch.zeros((1, feats.size(1)), dtype=torch.bool).to(DEVICE)
             
             out = MODELS["classifier"](feats, attn_mask, epoch=1, stride=1)
             probs = torch.softmax(out, dim=1)
             idx = torch.argmax(probs, dim=1).item()
+            del feats, attn_mask
+            torch.cuda.empty_cache()
             
         return jsonify({
             'predicted_class': CLASS_NAMES.get(idx, str(idx)),
@@ -236,9 +193,8 @@ def predict():
     finally:
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
-        if DEVICE == 'cuda':
-            torch.cuda.empty_cache()
+        gc.collect()
+        torch.cuda.empty_cache()
 
 if __name__ == '__main__':
-    # use_reloader=False is REQUIRED to prevent forking/CUDA crashes
-    app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+    app.run(host='0.0.0.0', port=8502, debug=False, use_reloader=False)
