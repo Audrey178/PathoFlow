@@ -344,7 +344,7 @@ Ensure your host machine has the following installed:
 Navigate to the project directory and launch the system using Docker Compose:
 
 ```bash
-cd pathoflow
+cd Pathoflow
 docker compose up -d --build
 ```
 
